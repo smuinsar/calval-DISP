@@ -240,7 +240,7 @@ def plot_transient_table(ratio_pd, site, percentage, thresthod, title_text, fign
     for _, spine in ax.spines.items():
         spine.set_visible(True)
         spine.set_linewidth(2)
-    
-    fig.savefig(figname, bbox_inches='tight', transparent=True, dpi=300)
 
     plt.tight_layout()
+  
+    fig.savefig(figname, bbox_inches='tight', transparent=True, dpi=300)
