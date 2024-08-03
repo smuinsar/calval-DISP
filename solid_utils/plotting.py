@@ -1,12 +1,13 @@
 # Author: Marin Govorcin
 # June, 2024
+# functions added by Jinwoo, Aug 2024
 
 import pandas as pd
 import numpy as np
 import matplotlib.patches as patches
 from matplotlib import pyplot as plt
 from numpy.typing import NDArray
-
+import seaborn as sns
 
 def display_validation(pair_distance: NDArray, pair_difference: NDArray,
                        site_name: str, start_date: str, end_date: str,
@@ -162,3 +163,84 @@ def display_validation_table(validation_table):
             .apply(bold_last_row, axis=1)
             .map(style_success_fail, subset=[validation_table.columns[-1]])
            )
+
+def plot_secular_table(ratio_pd, site, percentage, thresthod, title_text, figname, annot=True):
+    _df = ratio_pd.applymap(lambda x: pd.to_numeric(x, errors='coerce'))
+    _df.index = _df.index.map(lambda x: f"{x[9:]}")
+
+    # Create a boolean mask for coloring
+    # True (1) if value >= 0.5 or not NaN, False (0) otherwise
+    _mask = _df.applymap(lambda x: 1 if (x >= thresthod and not pd.isna(x)) else 0)
+
+    # Transpose to swap x and y axes
+    _df_transposed = _df.T
+    _mask_transposed = _mask.T
+
+    fig, ax = plt.subplots(figsize=(18, 10))
+
+    # Create a custom colormap: red for 0, green for 1
+    cmap = plt.cm.colors.ListedColormap(['red', 'green'])
+
+    # Create the heatmap
+    if annot:		# heat map has values in cells
+        sns.heatmap(_df_transposed, ax=ax, annot=True, cbar=False, cmap=plt.cm.colors.ListedColormap(['white']))
+    sns.heatmap(_mask_transposed, cmap=cmap, ax=ax, cbar=False, linewidths=0.5, linecolor='black', alpha=0.2)
+
+    if percentage >= 0.70:
+        validation_flag = 'PASSED'
+        flag_color = 'green'
+    else: 
+        validation_flag = 'FAILED'
+        flag_color = 'red'
+    
+    title = ax.set_title(title_text, fontsize=16)
+
+    # Function to create text with mixed font weights
+    def mixed_weight_text(text):
+        parts = []
+        for word in text.split():
+            if word == "PASSED" or word == "FAILED":
+                parts.append(f"$\\bf{{{word}}}$")  # Bold
+            else:
+                parts.append(word)
+        return " ".join(parts)
+    
+    # Create the text with mixed weights
+    text = mixed_weight_text(f"Transient requirement (Site {site}): {validation_flag}")
+
+    # Get the position of the title
+    title_pos = title.get_position()
+
+    # Calculate the position for the text box (just to the right of the title)
+    text_x = title_pos[0] + 0.1  # Slightly to the right of the title's center
+    text_y = title_pos[1] + 0.03  # Same y-position as the title
+
+    # # Add the text box
+    text_box = ax.text(text_x, text_y, text, ha='left', va='center',
+                    bbox=dict(boxstyle="round,pad=0.3", facecolor=flag_color, alpha=0.4),
+                    transform=ax.transAxes, fontsize=16)
+
+    # Adjust the title's position to make room for the text box
+    title.set_position((title_pos[0] - 0.2, title_pos[1]))
+
+    plt.xlabel('Dates', fontsize=16, fontweight ='bold')
+    plt.ylabel('Distance Ranges (km)', fontsize=16, fontweight ='bold')
+
+    # Rotate x-axis labels
+    plt.xticks(rotation=90)
+
+    ax.axhline(_df_transposed.shape[0]-1, color='black', linewidth=3, linestyle='--')
+    if ratio_pd.columns[-1] == 'mean':
+        ax.axhline(_df_transposed.shape[0]-2, color='black', linewidth=3, linestyle='--') 
+
+    # Rotate y-axis labels
+    plt.yticks(rotation=0)
+
+    # Add a frame around the heatmap
+    for _, spine in ax.spines.items():
+        spine.set_visible(True)
+        spine.set_linewidth(2)
+    
+    fig.savefig(figname, bbox_inches='tight', transparent=True, dpi=300)
+
+    plt.tight_layout()
