@@ -164,7 +164,7 @@ def display_validation_table(validation_table):
             .map(style_success_fail, subset=[validation_table.columns[-1]])
            )
 
-def plot_secular_table(ratio_pd, site, percentage, thresthod, title_text, figname, annot=True):
+def plot_transient_table(ratio_pd, site, percentage, thresthod, title_text, figname, annot=True):
     _df = ratio_pd.applymap(lambda x: pd.to_numeric(x, errors='coerce'))
     _df.index = _df.index.map(lambda x: f"{x[9:]}")
 
