@@ -27,6 +27,7 @@ def calculate_window_std(start_row: int, end_row: int, start_col: int, end_col: 
 
     with h5py.File(ts_file, 'r') as f:
         window_data = f['timeseries'][depth:(depth+window_size), start_row:end_row, start_col:end_col]       # unit: meter
+        window_data[window_data==0.] = np.nan		# zeros in timeseries are no data
         window_data = np.transpose(window_data, (1,2,0))      # reshaping an array to have number of pairs to last axis
     
     window_data = window_data.reshape(-1,window_size)   # converting from 3D to 2D
