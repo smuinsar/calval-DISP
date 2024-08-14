@@ -82,7 +82,8 @@ def main(inps):
             datelist = f['date'][()]
 
         print(f'input ts file: ', ts)
-        print(f'Shape of timeseries in input ts file: ({num_ts}, {row}, {col}) \n')
+        print(f'Shape of timeseries in input ts file: ({num_ts}, {row}, {col})')
+        print(f'time range of input ts file: {datelist[0].decode()} - {datelist[-1].decode()} \n')
 
         if (endStack is None) or (endStack > (num_ts-1)):
             endStack = (num_ts - 1 )
