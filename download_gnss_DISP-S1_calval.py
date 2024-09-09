@@ -12,6 +12,8 @@ import requests
 from io import BytesIO
 import zipfile
 
+from scipy.signal import find_peaks
+
 from tqdm import tqdm
 
 import ruptures as rpt      # for detecting significant steps (pip install ruptures)
@@ -27,18 +29,19 @@ from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
 import warnings
 warnings.filterwarnings("ignore")
 
-def detect_step_functions(dates, time_series, penalty=1, threshold=0.1):
+def detect_step_functions(dates, time_series, penalty=1, threshold=0.1, window_size=10):
     """
-    Detect significant step functions in a time series with corresponding dates.
+    Detect significant step functions and stair-like features in a time series with corresponding dates.
     
     Args:
     dates (list): List of dates corresponding to the time series data.
     time_series (list or numpy.array): The input time series data.
     penalty (float): Penalty term for the change point detection algorithm. Default is 1.
     threshold (float): The minimum relative change to consider as a significant step. Default is 0.1 (10%).
+    window_size (int): Size of the window for local trend analysis. Default is 10.
     
     Returns:
-    list: List of tuples (date, index) where significant step functions are detected.
+    list: List of tuples (date, index, step_type) where significant step functions or stairs are detected.
     """
     # Convert input to numpy array if it's a list
     if isinstance(time_series, list):
@@ -54,19 +57,35 @@ def detect_step_functions(dates, time_series, penalty=1, threshold=0.1):
     # Find the change points
     change_points = model.predict(pen=penalty)
     
-    # Filter significant step functions
-    significant_steps = []
-    for i in range(len(change_points) - 1):
-        start, end = change_points[i], change_points[i+1]
-        before = np.mean(time_series[start:end])
-        after = np.mean(time_series[end:min(end+10, len(time_series))])
-        
-        relative_change = abs(after - before) / abs(before)
-        
-        if relative_change > threshold:
-            significant_steps.append((dates[end], end))
+    # Calculate first differences
+    diff = np.diff(time_series)
     
-    return significant_steps
+    # Find peaks in the absolute differences (potential steps)
+    peaks, _ = find_peaks(np.abs(diff), height=np.std(diff)*2)
+    
+    # Combine change points and peaks
+    all_points = sorted(set(change_points[1:]).union(set(peaks)))
+    
+    # Filter significant steps and detect stair-like features
+    significant_features = []
+    for point in all_points:
+        before = np.mean(time_series[max(0, point-window_size):point])
+        after = np.mean(time_series[point:min(point+window_size, len(time_series))])
+        
+        relative_change = (after - before) / abs(before)
+        
+        if abs(relative_change) > threshold:
+            # Check for stair-like feature
+            if point + window_size < len(time_series):
+                next_window = np.mean(time_series[point+window_size:min(point+2*window_size, len(time_series))])
+                if abs((next_window - after) / after) < threshold/2:
+                    significant_features.append((dates[point], point, "stair"))
+                else:
+                    significant_features.append((dates[point], point, "step"))
+            else:
+                significant_features.append((dates[point], point, "step"))
+    
+    return significant_features
 
 def plot_gnss_stations_frame(sites_df, geom, figname, title="GNSS Stations with Frame", plot_buffer=0.2):
     """ 
